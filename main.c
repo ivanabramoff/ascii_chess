@@ -13,10 +13,10 @@ uint32_t move_count = 1;
 #define QUEEN           0x5
 #define KING            0x6
 
-#define WHITE           0x0
-#define BLACK           0x8
+#define WHITE           0x8
+#define BLACK           0x10
 
-#define CHECK           0x10
+#define CHECK           0x80
 
 #define EN_PASSANT      0x20
 #define PAWN_FIRST_MOVE 0x40
@@ -24,8 +24,8 @@ uint32_t move_count = 1;
 #define PIECE_TYPE_MASK 0x7
 
 
-#define COLOR_TO_MOVE_LITERAL (move_count % 2 == 1) ? ("white") : ("black")
-#define COLOR_TO_MOVE_NUMBER (move_count % 2 == 1) ? (WHITE) : (BLACK);
+#define COLOR_TO_MOVE_LITERAL(move_count)   (move_count % 2 == 1) ? ("white") : ("black")
+#define COLOR_TO_MOVE_NUMBER(move_count)    (move_count % 2 == 1) ? (WHITE) : (BLACK)
 
 
 void init_board( void );
@@ -37,12 +37,17 @@ uint8_t piece = 0, src = 0, dest = 0;
 
 int32_t main(int32_t argc, int8_t **argv)
 {
+    bool pawn_moves(uint8_t, uint8_t);
     init_board();
     draw_board();
-    
+    while(1){
+    piece = 0, src = 0, dest = 0;
     move_input(&piece, &src, &dest);
-    make_a_move(src, dest);
+    if(pawn_moves(src, dest))
+        make_a_move(src, dest);
     draw_board();
+    
+    }
     return 0;
 }
 
@@ -126,13 +131,18 @@ void make_a_move(uint8_t src, uint8_t dest)
 {
     chess_board[dest / 8][dest % 8] = chess_board[src / 8][src % 8];
     chess_board[src / 8][src % 8] = 0;
+    move_count++;
 }
 
 // move input, expects piece+src_square+dest_square
 // for example, pd2d4 qa4d1 
 int8_t move_input(uint8_t *piece_no_modifiers, uint8_t *src, uint8_t *dest) 
 {
-    printf("Make a move (%s to move): ", COLOR_TO_MOVE_LITERAL);
+    // clean pointers values 
+    *piece_no_modifiers = 0, *src = 0, *dest = 0;
+
+    // input itself
+    printf("Make a move (%s to move): ", COLOR_TO_MOVE_LITERAL(move_count));
     char move[6];
     scanf("%s", &move);
     
@@ -170,7 +180,7 @@ int8_t move_input(uint8_t *piece_no_modifiers, uint8_t *src, uint8_t *dest)
         default:
             *piece_no_modifiers = 0;
             break;    
-    } *piece_no_modifiers |= COLOR_TO_MOVE_NUMBER;
+    } *piece_no_modifiers |= COLOR_TO_MOVE_NUMBER(move_count);
 
     //write src and dest cells to *src and *dest
     *src = (move[1] - 'a') + (move[2] - '1') * 8;
@@ -182,14 +192,118 @@ int8_t move_input(uint8_t *piece_no_modifiers, uint8_t *src, uint8_t *dest)
 
 bool is_move_valid(uint8_t piece, uint8_t src, uint8_t dest) 
 {
-    return true;
+    // check if destination square is behind the source square    
+    if(dest <= src)
+        return false;
 }
 
+bool is_checked() 
+{
 
+}
 
+bool pawn_moves(uint8_t src, uint8_t dest)
+{
+    uint8_t offset = dest - src;
+    uint8_t dest_square = chess_board[dest / 8][dest % 8];
 
+    // check if it's a left-side capture
+    if(offset == 7) {
+        // check if it's on the left-most column
+        if(src % 8 == 0)
+            return false;
+        // check if it's same colored pieces
+        if(dest_square & COLOR_TO_MOVE_NUMBER(move_count))
+            return false;
+        // check if the square is empty --REDUNDANT--
+        if(dest_square == 0)
+            return false;
+        return true;
+    }
 
+    // check if it's a 1-square-up move
+    else if(offset == 8) {
+        // check if the square is empty
+        if(dest_square != 0)
+            return false;
+        return true;
+    }
 
+    // check if it's a right-side capture
+    else if(offset == 9) {
+        // check if it's on the right-most column
+        if(src % 8 == 7)
+            return false;
+        // check if it's same colored pieces
+        if(dest_square & COLOR_TO_MOVE_NUMBER(move_count))
+            return false;
+        // check if the square is empty --REDUNDANT--
+        if(dest_square == 0)
+            return false;
+        return true;  
+    }
 
+    // check if it's a 2-square-up move
+    else if(offset == 16) {
+        // check if the jumped-over and dest squares are empty
+        if(dest_square != 0 && dest_square - 8 != 0)
+            return false;
+        return true;
+    }
+    return false;
+}
 
+bool rook_moves(uint8_t src, uint8_t dest) 
+{
+    uint8_t offset = dest - src;
+    uint8_t dest_square = chess_board[dest / 8][dest % 8];
+    
+    // check if rook moves horizontally
+    if(offset < 8) {
+        // check if the dest[][this] bigger than src[][this]  
+        if(dest % 8 <= src % 8)
+            return false;
+        // check every square whether it's empty
+        for(uint8_t i = (src % 8) + 1; i < dest % 8; i++) {
+            if(chess_board[src / 8][i] != 0)
+                return false;
+        }
+        // check the destination square
+            if(dest_square & COLOR_TO_MOVE_NUMBER(move_count) != 0)
+                return false;
+        return true;
+    }
 
+    // check if rook moves vertically
+    else if(dest % 8 == src % 8 && offset >= 8) {
+        // check every square whether it's empty
+        for(uint8_t i = src; i < dest; i += 8) {
+            if(chess_board[i / 8][i % 8] != 0)
+                return false;
+        }
+        // check the destination square
+            if(dest_square & COLOR_TO_MOVE_NUMBER(move_count) != 0)
+                return false;
+        return true;
+    }
+}
+
+bool knight_moves(uint8_t src, uint8_t dest)
+{
+
+}
+
+bool bishop_moves(uint8_t src, uint8_t dest) 
+{
+
+}
+
+bool queen_moves(uint8_t src, uint8_t dest) 
+{
+
+}
+
+bool king_moves(uint8_t src, uint8_t dest)
+{
+
+}
