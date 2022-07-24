@@ -4,7 +4,7 @@
 #include <stdbool.h>
 
 uint8_t chess_board [8][8];
-uint32_t move_count = 1;
+int32_t move_count = 1;
 
 #define PAWN            0x1
 #define ROOK            0x2
@@ -22,6 +22,7 @@ uint32_t move_count = 1;
 #define PAWN_FIRST_MOVE 0x40
 
 #define PIECE_TYPE_MASK 0x7
+#define PIECE_COLOR_MASK 0x18
 
 
 #define COLOR_TO_MOVE_LITERAL(move_count)   (move_count % 2 == 1) ? ("white") : ("black")
@@ -40,11 +41,14 @@ int32_t main(int32_t argc, int8_t **argv)
     bool pawn_moves(uint8_t, uint8_t);
     init_board();
     draw_board();
-    while(1){
+    while(1) {
+    printf("\n %s %d \n", COLOR_TO_MOVE_LITERAL(move_count), COLOR_TO_MOVE_NUMBER(move_count));
     piece = 0, src = 0, dest = 0;
     move_input(&piece, &src, &dest);
-    if(pawn_moves(src, dest))
+    if(pawn_moves(src, dest)) {
         make_a_move(src, dest);
+        printf("est!\n");
+    }
     draw_board();
     
     }
@@ -204,25 +208,28 @@ bool is_checked()
 
 bool pawn_moves(uint8_t src, uint8_t dest)
 {
-    uint8_t offset = dest - src;
+    int8_t offset = dest - src;
     uint8_t dest_square = chess_board[dest / 8][dest % 8];
+    uint8_t src_square = chess_board[src / 8][src % 8];
 
     // check if it's a left-side capture
-    if(offset == 7) {
+    if((offset == 7) && (COLOR_TO_MOVE_NUMBER(move_count) == WHITE) || (offset == -9) && (COLOR_TO_MOVE_NUMBER(move_count) == BLACK)) {
+        printf("p1\n");
         // check if it's on the left-most column
         if(src % 8 == 0)
             return false;
         // check if it's same colored pieces
-        if(dest_square & COLOR_TO_MOVE_NUMBER(move_count))
+        if(COLOR_TO_MOVE_NUMBER(move_count) == (dest_square & PIECE_COLOR_MASK))
             return false;
-        // check if the square is empty --REDUNDANT--
+        // check if the square is empty
         if(dest_square == 0)
             return false;
         return true;
     }
 
     // check if it's a 1-square-up move
-    else if(offset == 8) {
+    else if((offset == 8) && (COLOR_TO_MOVE_NUMBER(move_count) == WHITE) || (offset == -8) && (COLOR_TO_MOVE_NUMBER(move_count) == BLACK)) {
+        printf("p2\n");
         // check if the square is empty
         if(dest_square != 0)
             return false;
@@ -230,32 +237,44 @@ bool pawn_moves(uint8_t src, uint8_t dest)
     }
 
     // check if it's a right-side capture
-    else if(offset == 9) {
+    else if((offset == 9) && (COLOR_TO_MOVE_NUMBER(move_count) == WHITE) || (offset == -7) && (COLOR_TO_MOVE_NUMBER(move_count) == BLACK)) {
+        printf("p3\n");
         // check if it's on the right-most column
         if(src % 8 == 7)
             return false;
         // check if it's same colored pieces
-        if(dest_square & COLOR_TO_MOVE_NUMBER(move_count))
+        if(COLOR_TO_MOVE_NUMBER(move_count) == (dest_square & PIECE_COLOR_MASK))
             return false;
-        // check if the square is empty --REDUNDANT--
+        // check if the square is empty
         if(dest_square == 0)
             return false;
         return true;  
     }
 
     // check if it's a 2-square-up move
-    else if(offset == 16) {
+    else if((offset == 16) && (COLOR_TO_MOVE_NUMBER(move_count) == WHITE) || (offset == -16) && (COLOR_TO_MOVE_NUMBER(move_count) == BLACK)) {
+        printf("p4\n");
         // check if the jumped-over and dest squares are empty
-        if(dest_square != 0 && dest_square - 8 != 0)
-            return false;
+        if(COLOR_TO_MOVE_NUMBER(move_count) == WHITE) {
+            if((chess_board[dest / 8][dest % 8] != 0) || (chess_board[dest / 8 - 1][dest % 8] != 0)) {
+                return false;
+            }
+        }
+        if(COLOR_TO_MOVE_NUMBER(move_count) == BLACK) {
+            if((chess_board[dest / 8][dest % 8] != 0) || (chess_board[dest / 8 + 1][dest % 8] != 0)) {
+                return false;
+            }
+        }
+        //chess_board[src_square] = chess_board[src_square] & (~PAWN_FIRST_MOVE);
         return true;
     }
     return false;
+    // un passant !!! change the PAWNFIRSTMOVE 
 }
 
 bool rook_moves(uint8_t src, uint8_t dest) 
 {
-    uint8_t offset = dest - src;
+    int8_t offset = dest - src;
     uint8_t dest_square = chess_board[dest / 8][dest % 8];
     
     // check if rook moves horizontally
